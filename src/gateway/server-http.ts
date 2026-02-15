@@ -87,6 +87,29 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
+function handleGatewayProbeRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  isReady: () => boolean,
+): boolean {
+  const method = (req.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD") {
+    return false;
+  }
+
+  const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+  if (pathname === "/healthz") {
+    sendJson(res, 200, { status: "ok" });
+    return true;
+  }
+  if (pathname === "/readyz") {
+    const ready = isReady();
+    sendJson(res, ready ? 200 : 503, { status: ready ? "ready" : "not_ready" });
+    return true;
+  }
+  return false;
+}
+
 function isCanvasPath(pathname: string): boolean {
   return (
     pathname === A2UI_PATH ||
@@ -447,6 +470,8 @@ export function createGatewayHttpServer(opts: {
   handleHooksRequest: HooksRequestHandler;
   handlePluginRequest?: HooksRequestHandler;
   resolvedAuth: ResolvedGatewayAuth;
+  /** Optional readiness callback used by infrastructure probes. */
+  isReady?: () => boolean;
   /** Optional rate limiter for auth brute-force protection. */
   rateLimiter?: AuthRateLimiter;
   tlsOptions?: TlsOptions;
@@ -462,6 +487,7 @@ export function createGatewayHttpServer(opts: {
     openResponsesConfig,
     handleHooksRequest,
     handlePluginRequest,
+    isReady,
     resolvedAuth,
     rateLimiter,
   } = opts;
@@ -480,6 +506,10 @@ export function createGatewayHttpServer(opts: {
     }
 
     try {
+      if (handleGatewayProbeRequest(req, res, isReady ?? (() => true))) {
+        return;
+      }
+
       const configSnapshot = loadConfig();
       const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
       const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
