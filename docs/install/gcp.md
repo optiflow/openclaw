@@ -282,6 +282,13 @@ services:
 
 ## 10) Bake required binaries into the image (critical)
 
+The default image build is now multi-stage:
+
+- **Builder stage** (`node:22-bookworm`) compiles the gateway (`pnpm build`) and
+  Control UI (`pnpm ui:build`) with full dependencies.
+- **Runtime stage** (`node:22-bookworm-slim`) copies only runtime artifacts and
+  production dependencies.
+
 Installing binaries inside a running container is a trap.
 Anything installed at runtime will be lost on restart.
 
@@ -305,7 +312,7 @@ If you add new skills later that depend on additional binaries, you must:
 **Example Dockerfile**
 
 ```dockerfile
-FROM node:22-bookworm
+FROM node:22-bookworm AS builder
 
 RUN apt-get update && apt-get install -y socat && rm -rf /var/lib/apt/lists/*
 
@@ -326,6 +333,7 @@ RUN curl -L https://github.com/steipete/wacli/releases/latest/download/wacli_Lin
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY ui/package.json ./ui/package.json
+COPY patches ./patches
 COPY scripts ./scripts
 
 RUN corepack enable
@@ -333,12 +341,20 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 RUN pnpm build
-RUN pnpm ui:install
 RUN pnpm ui:build
+RUN pnpm install --prod --frozen-lockfile
+
+FROM node:22-bookworm-slim AS runtime
+
+WORKDIR /app
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/openclaw.mjs ./
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
 
 ENV NODE_ENV=production
 
-CMD ["node","dist/index.js"]
+CMD ["node","openclaw.mjs","gateway","--allow-unconfigured"]
 ```
 
 ---
