@@ -51,6 +51,7 @@ Optional env vars:
 - `OPENCLAW_DOCKER_APT_PACKAGES` — install extra apt packages during build
 - `OPENCLAW_EXTRA_MOUNTS` — add extra host bind mounts
 - `OPENCLAW_HOME_VOLUME` — persist `/home/node` in a named volume
+- `PORT` — fallback gateway port for Cloud Run-like runtimes (used only when `OPENCLAW_GATEWAY_PORT` and `CLAWDBOT_GATEWAY_PORT` are unset)
 
 After it finishes:
 

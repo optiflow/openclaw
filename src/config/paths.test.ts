@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import type { OpenClawConfig } from "./types.js";
 import {
   resolveDefaultConfigCandidates,
   resolveConfigPathCandidate,
@@ -9,6 +10,8 @@ import {
   resolveOAuthDir,
   resolveOAuthPath,
   resolveStateDir,
+  resolveGatewayPort,
+  DEFAULT_GATEWAY_PORT,
 } from "./paths.js";
 
 describe("oauth paths", () => {
@@ -137,5 +140,44 @@ describe("state + config path candidates", () => {
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("gateway port resolution", () => {
+  it("uses OPENCLAW_GATEWAY_PORT before other env vars", () => {
+    const env = {
+      OPENCLAW_GATEWAY_PORT: "31001",
+      CLAWDBOT_GATEWAY_PORT: "31002",
+      PORT: "31003",
+    } as NodeJS.ProcessEnv;
+
+    expect(resolveGatewayPort({ gateway: { port: 31004 } } as OpenClawConfig, env)).toBe(31001);
+  });
+
+  it("uses CLAWDBOT_GATEWAY_PORT when OPENCLAW_GATEWAY_PORT is unset", () => {
+    const env = {
+      CLAWDBOT_GATEWAY_PORT: "32002",
+      PORT: "32003",
+    } as NodeJS.ProcessEnv;
+
+    expect(resolveGatewayPort({ gateway: { port: 32004 } } as OpenClawConfig, env)).toBe(32002);
+  });
+
+  it("uses PORT when OpenClaw gateway env vars are unset", () => {
+    const env = {
+      PORT: "33003",
+    } as NodeJS.ProcessEnv;
+
+    expect(resolveGatewayPort({ gateway: { port: 33004 } } as OpenClawConfig, env)).toBe(33003);
+  });
+
+  it("uses config port when env vars are unset", () => {
+    expect(
+      resolveGatewayPort({ gateway: { port: 34004 } } as OpenClawConfig, {} as NodeJS.ProcessEnv),
+    ).toBe(34004);
+  });
+
+  it("uses default when env vars and config are absent", () => {
+    expect(resolveGatewayPort(undefined, {} as NodeJS.ProcessEnv)).toBe(DEFAULT_GATEWAY_PORT);
   });
 });
