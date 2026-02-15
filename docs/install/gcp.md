@@ -49,6 +49,50 @@ For the generic Docker flow, see [Docker](/install/docker).
 
 ---
 
+## Stateful deployment constraints (singleton assumption)
+
+OpenClaw Gateway currently assumes a single active runtime owns local state.
+Before running production traffic, enforce singleton behavior explicitly.
+
+### Why singleton matters today
+
+- **Local session state**: auth/session artifacts live in local filesystem paths
+  (for example under `~/.openclaw`) and are not replicated across replicas.
+- **In-memory lock semantics**: process-local guards (rate limits, dedupe,
+  transient coordination) are not distributed locks.
+- **WebSocket affinity**: active client flows and subscriptions are attached to
+  one process; non-sticky load balancing can split reconnect traffic across
+  instances and cause inconsistent behavior.
+
+### Recommended GCP settings
+
+#### GKE
+
+- Set `replicas: 1` for the Gateway deployment.
+- If you expose the Gateway through ingress/load balancing, enable sticky
+  session affinity for WebSocket traffic where supported by your ingress class.
+- Mount persistent storage for `~/.openclaw` and `~/.openclaw/workspace`.
+
+#### Managed Instance Groups or direct VM deployments
+
+- Run a **single active instance** for the Gateway workload.
+- Attach a **persistent disk** for stateful paths (config, credentials,
+  sessions, workspace).
+- Avoid autoscaling policies that can create concurrent active Gateway
+  instances against the same state.
+
+### Multi-replica roadmap (what must be externalized first)
+
+Safe horizontal scaling requires externalizing stateful coordination:
+
+1. Session store (shared durable backend replacing local-only session state).
+2. Work queue or event bus (shared delivery/processing coordination).
+3. Distributed lock service (cross-replica lock semantics for critical paths).
+
+Until those are implemented, production deployments should remain singleton.
+
+---
+
 ## What you need
 
 - GCP account (free tier eligible for e2-micro)

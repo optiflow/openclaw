@@ -3,6 +3,7 @@ import type { loadConfig } from "../config/config.js";
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
 import { resolveConfiguredModelRef } from "../agents/model-selection.js";
 import { getResolvedLoggerSettings } from "../logging.js";
+import { resolveDeploymentRiskWarning } from "./deployment-risk-warning.js";
 
 export function logGatewayStartup(params: {
   cfg: ReturnType<typeof loadConfig>;
@@ -10,8 +11,12 @@ export function logGatewayStartup(params: {
   bindHosts?: string[];
   port: number;
   tlsEnabled?: boolean;
-  log: { info: (msg: string, meta?: Record<string, unknown>) => void };
+  log: {
+    info: (msg: string, meta?: Record<string, unknown>) => void;
+    warn?: (msg: string, meta?: Record<string, unknown>) => void;
+  };
   isNixMode: boolean;
+  env?: NodeJS.ProcessEnv;
 }) {
   const { provider: agentProvider, model: agentModel } = resolveConfiguredModelRef({
     cfg: params.cfg,
@@ -36,5 +41,17 @@ export function logGatewayStartup(params: {
   params.log.info(`log file: ${getResolvedLoggerSettings().file}`);
   if (params.isNixMode) {
     params.log.info("gateway: running in Nix mode (config managed externally)");
+  }
+  const deploymentRiskWarning = resolveDeploymentRiskWarning(params.env);
+  if (deploymentRiskWarning && params.log.warn) {
+    params.log.warn(
+      "gateway deployment warning: autoscaled or multi-replica runtimes can break session continuity without shared state; keep one active replica or add sticky routing and coordination.",
+      {
+        consoleMessage:
+          "gateway deployment warning: detected autoscaling hints (" +
+          deploymentRiskWarning.reasonSummary +
+          "). OpenClaw Gateway currently assumes singleton local state. Recommended: run one active replica with persistent storage and sticky websocket routing.",
+      },
+    );
   }
 }
