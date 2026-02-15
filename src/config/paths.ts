@@ -258,8 +258,12 @@ export function resolveGatewayPort(
   cfg?: OpenClawConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): number {
-  const envRaw = env.OPENCLAW_GATEWAY_PORT?.trim() || env.CLAWDBOT_GATEWAY_PORT?.trim();
-  if (envRaw) {
+  const envCandidates = [env.OPENCLAW_GATEWAY_PORT, env.CLAWDBOT_GATEWAY_PORT, env.PORT];
+  for (const candidate of envCandidates) {
+    const envRaw = candidate?.trim();
+    if (!envRaw) {
+      continue;
+    }
     const parsed = Number.parseInt(envRaw, 10);
     if (Number.isFinite(parsed) && parsed > 0) {
       return parsed;

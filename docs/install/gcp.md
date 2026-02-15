@@ -219,6 +219,8 @@ OPENCLAW_IMAGE=openclaw:latest
 OPENCLAW_GATEWAY_TOKEN=change-me-now
 OPENCLAW_GATEWAY_BIND=lan
 OPENCLAW_GATEWAY_PORT=18789
+# Optional for Cloud Run-like runtimes when using their injected port env
+PORT=18789
 
 OPENCLAW_CONFIG_DIR=/home/$USER/.openclaw
 OPENCLAW_WORKSPACE_DIR=/home/$USER/.openclaw/workspace
@@ -235,6 +237,10 @@ openssl rand -hex 32
 ```
 
 **Do not commit this file.**
+
+Port precedence at runtime is:
+`OPENCLAW_GATEWAY_PORT` -> `CLAWDBOT_GATEWAY_PORT` -> `PORT` -> config file -> default `18789`.
+This keeps OpenClaw-specific settings authoritative while still supporting Cloud Run-style `PORT` injection when OpenClaw env vars are unset.
 
 ---
 
