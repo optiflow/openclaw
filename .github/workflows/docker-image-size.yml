@@ -1,0 +1,42 @@
+name: Docker Image Size
+
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - package.json
+      - pnpm-lock.yaml
+      - patches/**
+      - .github/workflows/docker-image-size.yml
+  push:
+    branches:
+      - main
+    paths:
+      - Dockerfile
+      - package.json
+      - pnpm-lock.yaml
+      - patches/**
+      - .github/workflows/docker-image-size.yml
+
+jobs:
+  image-size-check:
+    runs-on: ubuntu-latest
+    env:
+      MAX_IMAGE_SIZE_MB: "1600"
+      IMAGE_TAG: openclaw-size-check:ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build --target runtime -t "$IMAGE_TAG" .
+
+      - name: Enforce max runtime image size
+        run: |
+          image_size_bytes="$(docker image inspect "$IMAGE_TAG" --format='{{.Size}}')"
+          image_size_mb="$((image_size_bytes / 1024 / 1024))"
+          echo "Runtime image size: ${image_size_mb} MB (${image_size_bytes} bytes)"
+          if [ "$image_size_mb" -gt "$MAX_IMAGE_SIZE_MB" ]; then
+            echo "Image size regression: ${image_size_mb} MB exceeds ${MAX_IMAGE_SIZE_MB} MB"
+            exit 1
+          fi
