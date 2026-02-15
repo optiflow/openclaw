@@ -635,3 +635,47 @@ Example:
   sources `/etc/profile` and may reset PATH. Set `docker.env.PATH` to prepend your
   custom tool paths (e.g., `/custom/bin:/usr/local/share/npm-global/bin`), or add
   a script under `/etc/profile.d/` in your Dockerfile.
+
+## Native probe endpoints (Docker and Kubernetes)
+
+The Gateway exposes two unauthenticated probe endpoints for platform health checks:
+
+- `GET /healthz` — process-level liveness (`200` when the HTTP process is up)
+- `GET /readyz` — serving readiness (`200` when ready, `503` while not ready)
+
+Both endpoints return compact JSON payloads and never include secrets.
+
+### Docker Compose healthcheck
+
+Use `/readyz` for container health so orchestrators only route traffic when
+Gateway request handling is ready:
+
+```yaml
+services:
+  openclaw-gateway:
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:18789/readyz > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+```
+
+### Kubernetes liveness/readiness probes
+
+Use `/healthz` for liveness and `/readyz` for readiness:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 18789
+  initialDelaySeconds: 10
+  periodSeconds: 30
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 18789
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
