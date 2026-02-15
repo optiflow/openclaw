@@ -285,12 +285,18 @@ services:
         "node",
         "dist/index.js",
         "gateway",
+        "--allow-unconfigured",
         "--bind",
         "${OPENCLAW_GATEWAY_BIND}",
         "--port",
         "${OPENCLAW_GATEWAY_PORT}",
       ]
 ```
+
+This guide uses `--allow-unconfigured` as the single startup path for fresh
+VMs. The runtime guard in `gateway run` blocks startup when
+`gateway.mode=local` is missing; this flag is the documented bypass for first
+boot in Docker.
 
 ---
 
@@ -406,6 +412,18 @@ release version and artifact names before retrying.
 ```bash
 docker compose build
 docker compose up -d openclaw-gateway
+```
+
+Quick log check right after startup:
+
+```bash
+docker compose logs --tail=80 openclaw-gateway
+```
+
+What success looks like:
+
+```text
+[gateway] listening on ws://0.0.0.0:18789
 ```
 
 Verify binaries:
